@@ -3,28 +3,51 @@ variable "example_map" {
   default = {
     "elb" = ["10.0.0.0/24", "10.1.0.0/24"],
     "k8" = ["10.1.0.0/24"],
+    "main" = ["10.2.0.0/24"],
   }
 }
 
 data "aws_route_tables" "example" {
+  vpc_id = "vpc-0eb87f4bc98e08216"
   for_each = var.example_map
 
   filter {
     name   = "tag:role"
     values = [each.key]
   }
+
 }
 
+data "aws_vpc" "example" {
+  id = "vpc-0eb87f4bc98e08216"
+}
+
+
+
+
 locals {
-  route_table_ids_map = { for k, v in data.aws_route_tables.example : k => v.ids }
+  
+ # testing = {for k,v in data.aws_vpc.example : k => v.main_route_table_id}
+  
+  route_table_ids_map = { for k, v in data.aws_route_tables.example :  k => v.ids }
+
+  testing = merge(local.route_table_ids_map, {main = [data.aws_vpc.example.main_route_table_id]})
 
   merged_list = {
     for k, v in var.example_map :
     k => {
-      for id in local.route_table_ids_map[k] :
+      for id in local.testing[k] :
       id => v
     }
   }
+}
+
+output "testing456" {
+  value = local.testing
+}
+
+output "testing678" {
+  value = data.aws_vpc.example.main_route_table_id
 }
 
 locals {
@@ -43,9 +66,7 @@ locals {
   }
 }
 
-output "routes" {
-  value = local.routes
-}
+
 
 /*resource "aws_route" "example" {
   for_each = [for k,v in local.routes: v]
@@ -70,9 +91,9 @@ locals {
   ])
 }
 
-output "names" {
-  value = local.route_table_cidrs
-}
+
+
+
   
 resource "aws_route" "example" {
   for_each = {
@@ -88,19 +109,5 @@ resource "aws_route" "example" {
   destination_cidr_block = each.value.destination_cidr_block
   vpc_peering_connection_id = "pcx-0e8db41d404064c3c"
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
